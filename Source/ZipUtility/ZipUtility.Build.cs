@@ -3,6 +3,7 @@
 using UnrealBuildTool;
 using System;
 using System.IO;
+using System.Diagnostics;
 using Microsoft.Win32;
 
 public class ZipUtility : ModuleRules
@@ -21,13 +22,43 @@ public class ZipUtility : ModuleRules
     {
         get
         {
-            //Registry variant of fetch doesn't work since 2017
-            // If failed - using the most common install path
-            string vsDefaultBasePath = @"C:\Program Files (x86)\Microsoft Visual Studio\2019";
-            string vsVersion = "Community"; //Directory.GetDirectories(vsDefaultBasePath)[0];
-            string vsPath = Path.Combine(vsDefaultBasePath, vsVersion);
-            Console.WriteLine("ZipUtility Info: Using default VS path: " + vsPath);
-            return vsPath;
+            try
+            {
+                // Use VsWhere.exe to locate the latest installed Visual Studio
+                string vsWherePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Microsoft Visual Studio\\Installer\\vswhere.exe");
+                if (File.Exists(vsWherePath))
+                {
+                    ProcessStartInfo psi = new ProcessStartInfo()
+                    {
+                        FileName = vsWherePath,
+                        Arguments = "-latest -property installationPath",
+                        RedirectStandardOutput = true,
+                        UseShellExecute = false,
+                        CreateNoWindow = true
+                    };
+                    Process process = new Process() { StartInfo = psi };
+                    process.Start();
+                    string output = process.StandardOutput.ReadToEnd().Trim();
+                    process.WaitForExit();
+                    
+                    if (Directory.Exists(output))
+                    {
+                        Console.WriteLine("ZipUtility Info: Found VS installation at " + output);
+                        return output;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("ZipUtility Error: Failed to locate Visual Studio installation: " + ex.ToString());
+            }
+
+            // Fallback to a common path if detection fails
+            //string fallbackPath = "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community";
+            //string fallbackPath = "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community";
+            string fallbackPath = "C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional";
+            Console.WriteLine("ZipUtility Info: Using fallback VS path: " + fallbackPath);
+            return fallbackPath;
         }
     }
 
